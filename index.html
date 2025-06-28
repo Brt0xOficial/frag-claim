@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Solana Airdrop Auth</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/@solana/web3.js@1.92.1/lib/index.iife.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background: linear-gradient(135deg, #181a20 0%, #23263a 100%);
+        color: #fff;
+        font-family: 'Inter', Arial, sans-serif;
+        min-height: 100vh;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        background: #23263a;
+        border-radius: 18px;
+        box-shadow: 0 4px 24px rgba(44, 62, 80, 0.18);
+        padding: 2.5rem 2rem 2rem 2rem;
+        max-width: 420px;
+        width: 100%;
+        text-align: center;
+      }
+      h1 {
+        font-size: 2.2rem;
+        margin-bottom: 0.5rem;
+        color: #9945FF;
+        font-weight: 700;
+      }
+      p {
+        color: #b0b3c6;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+      }
+      button {
+        background: linear-gradient(90deg, #9945FF 60%, #14F195 100%);
+        color: #181a20;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 0.7rem;
+        padding: 1rem 2rem;
+        cursor: pointer;
+        margin-bottom: 1.5rem;
+        transition: background 0.2s;
+      }
+      .info, .error {
+        margin-top: 1.2rem;
+        word-break: break-all;
+        font-size: 1rem;
+      }
+      .error {
+        color: #ef476f;
+      }
+      .success {
+        color: #14F195;
+      }
+      .logo {
+        width: 64px;
+        margin-bottom: 1.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img src="https://cryptologos.cc/logos/solana-sol-logo.png" class="logo" alt="Solana Logo"/>
+      <h1>Solana Airdrop Auth</h1>
+      <p>Conecte sua carteira Phantom ou Backpack e autorize o acesso assinando a mensagem.</p>
+      <button id="connectBtn">Conectar Carteira Solana</button>
+      <div class="info" id="walletInfo"></div>
+      <div class="info" id="signatureInfo"></div>
+      <div class="error" id="errorInfo"></div>
+    </div>
+    <script>
+      const connectBtn = document.getElementById('connectBtn');
+      const walletInfo = document.getElementById('walletInfo');
+      const signatureInfo = document.getElementById('signatureInfo');
+      const errorInfo = document.getElementById('errorInfo');
+
+      connectBtn.onclick = async () => {
+        errorInfo.textContent = '';
+        signatureInfo.textContent = '';
+        walletInfo.textContent = '';
+        if (!window.solana || (!window.solana.isPhantom && !window.backpack)) {
+          errorInfo.textContent = "Instale a carteira Phantom ou Backpack para continuar.";
+          return;
+        }
+        try {
+          // Detecta Phantom ou Backpack
+          const provider = window.solana?.isPhantom ? window.solana : window.backpack?.solana;
+          await provider.connect();
+          const pubkey = provider.publicKey.toString();
+          walletInfo.innerHTML = "<b>Carteira conectada:</b> " + pubkey;
+
+          // Mensagem para assinar
+          const message = "Autorizo o acesso à minha carteira Solana conforme o contrato digital.";
+          const encodedMessage = new TextEncoder().encode(message);
+
+          // Solicita assinatura
+          const { signature } = await provider.signMessage(encodedMessage, "utf8");
+          signatureInfo.innerHTML = "<b>Assinatura:</b> <span class='success'>" + signature + "</span>";
+
+          // Aqui você pode enviar pubkey e signature para seu backend, se desejar
+        } catch (err) {
+          errorInfo.textContent = "Erro: " + (err.message || err);
+        }
+      };
+    </script>
+  </body>
+</html>
